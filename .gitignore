@@ -1,0 +1,5 @@
+library_tracker
+chain.dat
+ec_private.pem
+ec_public.pem
+*.o
