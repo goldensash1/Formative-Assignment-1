@@ -1,170 +1,188 @@
-# Demo Video Script (target: about 4:30)
+# Demo Video Script
 
-The rubric asks the video to show: **registry loading, lending actions, invalid ID
-handling, chain validation and tamper detection**, with a clear, professional
-explanation. This script covers all five, plus the security features
-(login, roles, per-user keys) that the "Security and Use of Cryptographic Keys"
-criterion rewards.
+Blockchain-Based Library Book Lending Tracker
 
----
+Length: about 4 to 5 minutes. The "Say" parts are what you speak. The "Do" parts are what you type or show on screen.
 
-## Before you hit record
+## Before recording
 
-1. Terminal font size 16–18pt, window wide enough for the records table
-   (about 120 columns). Hide unrelated tabs and notifications.
-2. Have the code editor open on `src/blockchain.h` (Block struct) in a second
-   window.
-3. Reset to a fresh state so the first-run setup appears on camera:
-   ```bash
-   make distclean && make
-   ```
-4. Pick two passwords now (at least 8 characters) for `admin` and
-   `librarian1`. Typing is hidden, so nothing sensitive shows on screen.
-5. Practise once without recording, then run `make distclean && make` again.
+- Make the terminal font bigger (16 to 18) and the window wide enough for the records table.
+- Open `src/blockchain.h` in your code editor.
+- Reset everything so the first-run setup shows on camera:
+
+```bash
+make distclean && make
+```
+
+- Decide your two passwords now, one for `admin` and one for `librarian1`. They are hidden when you type them.
+- Do one practice run, then run `make distclean && make` again before you record.
 
 ---
 
-## Scene 1: Introduction (0:00 – 0:25)
+## Part 1: Introduction (about 30 seconds)
 
-**Show:** the README or the system design diagram (`docs/system_design.svg`).
+Do: show the system design diagram (`docs/system_design.svg`) or the GitHub page.
 
-> "Hi, I'm [name]. This is my Blockchain-Based Library Book Lending Tracker,
-> written in C with OpenSSL. Paper lending logs can be quietly edited. Here,
-> every borrow, return and overdue event is a block that's hashed with SHA-256,
-> linked to the previous block, and digitally signed with ECDSA by the
-> librarian who recorded it, so any change to the history is detectable."
+Say:
 
-Point at the diagram: registries → CLI → blockchain, and the auth/crypto
-modules on the right.
+"Hello, my name is Golden Sash Munyankindi, and this is my demo of the Blockchain-Based Library Book Lending Tracker. It is written in C and uses OpenSSL.
 
-## Scene 2: Code structure and block (0:25 – 0:55)
+The problem with normal lending records is that anyone with access can change them. For example, a librarian could mark a lost book as returned. In my program every borrow, return and overdue action is saved as a block. Each block is hashed with SHA-256, points to the hash of the block before it, and is signed by the librarian who recorded it. If an old record is changed, the program can detect it."
 
-**Show:** `src/blockchain.h`, the `Block` struct.
+## Part 2: The block and the registry files (about 30 seconds)
 
-> "Each block holds the fields from the specification: index, timestamp,
-> book ID and title, member ID and name, the action, the previous hash, the
-> ECDSA signature and the block's own SHA-256 hash. I've added `recorded_by`,
-> the authenticated librarian who signed it. The genesis block's previous
-> hash is 64 zeros."
+Do: show the `Block` struct in `src/blockchain.h`, then `books.txt` and `members.txt`.
 
-Briefly show `books.txt` and `members.txt`.
+Say:
 
-## Scene 3: Registry loading and error handling (0:55 – 1:25)
+"This is the block structure. It has the index, timestamp, book ID and title, member ID and name, the action, the previous hash, the signature and the block's own hash. I also added recorded_by, which is the username of the librarian who signed the block, and sig_len, the length of the signature.
 
-**Do:** show the missing-file error first.
+These are the two registry files. books.txt has the book ID, title and author, and members.txt has the member ID, name and course code. The program only accepts IDs that are in these files."
+
+## Part 3: Loading the registries (about 30 seconds)
+
+Do:
 
 ```bash
 mv members.txt members.bak
 ./library_tracker
 ```
 
-> "Before anything else, the program loads both registries into arrays of
-> structs. If a file is missing, or empty, it stops with an error."
+Say:
+
+"First I'll show what happens if a registry file is missing. I've renamed members.txt, and the program prints an error and stops, because it can't check any lending action without it."
+
+Do:
 
 ```bash
 mv members.bak members.txt
 ./library_tracker
 ```
 
-> "With both files present it loads 5 books and 5 members."
+Say:
 
-## Scene 4: First-run setup and login (1:25 – 2:00)
+"Now with both files back, it loads 5 books and 5 members into memory."
 
-**Do:** create the admin account (username `admin`), then log in.
+## Part 4: First run and login (about 40 seconds)
 
-> "On first run there are no accounts, so it asks me to create an
-> administrator. Passwords are never stored. Only a random salt and a
-> PBKDF2-SHA256 hash go into `users.dat`. It also generates this user's own
-> ECDSA key pair. The private key is encrypted with the password, so only
-> this user can sign blocks."
+Do: create the admin account. Username `admin`, then type the password twice. Then log in with the same details.
 
-After logging in:
+Say:
 
-> "Logging in unlocks my private key. The genesis block is created and signed,
-> and the chain is verified at startup."
+"Because this is the first run, there are no accounts yet, so it asks me to create an administrator. The password is not saved. Only a salted hash of it is saved, in users.dat. The program also creates a key pair for this user. The private key is encrypted with the password, so nobody else can use it to sign blocks.
 
-## Scene 5: Borrowing: valid and invalid IDs (2:00 – 2:40)
+Now I log in. Logging in unlocks my private key. Since there is no chain yet, the program creates the genesis block, which has a previous hash of 64 zeros. Then it checks the chain, and it's valid."
 
-**Do**, in order:
+## Part 5: Borrowing with valid and invalid IDs (about 45 seconds)
 
-| Option | Book ID | Member ID | Expected output |
-|---|---|---|---|
-| 1 | `BK001` | `ALU001` | SUCCESS, Block #1 |
-| 1 | `BK999` | `ALU001` | `ERROR: Book or Member not found` |
-| 1 | `BK002` | `ALU999` | `ERROR: Book or Member not found` |
-| 1 | `BK001` | `ALU002` | already on loan |
-| 1 | `BK002` | `ALU002` | SUCCESS, Block #2 |
+Do, one at a time:
 
-> "A valid borrow creates, signs and appends a block. An unknown book or
-> member ID is rejected before anything is recorded. And a book that's
-> already out can't be borrowed again."
-
-## Scene 6: Overdue and return (2:40 – 3:05)
-
-**Do:**
-
-| Option | Input | Expected |
+| Menu option | Book ID | Member ID |
 |---|---|---|
-| 3 | `BK002` | OVERDUE block for Jane Smith |
-| 2 | `BK001` / `ALU002` | error: on loan to John Doe, not Jane Smith |
-| 2 | `BK001` / `ALU001` | SUCCESS, RETURNED block |
-| 2 | `BK001` / `ALU001` | error: no active loan (already returned) |
+| 1 | BK001 | ALU001 |
+| 1 | BK999 | ALU001 |
+| 1 | BK002 | ALU999 |
+| 1 | BK001 | ALU002 |
+| 1 | BK002 | ALU002 |
 
-> "A return only works for the member who actually borrowed the book, and a
-> book can't be returned twice."
+Say:
 
-## Scene 7: Roles and a second signer (3:05 – 3:30)
+"I'll borrow book BK001 for member ALU001. Both IDs are valid, so a new block is created, signed and added to the chain.
 
-**Do:** option 7 → role `1` → create `librarian1`. Exit (8), run again, log in as
-`librarian1`. Try option 6 to show *Access denied*. Borrow `BK003` / `ALU003`.
+Now I'll try book BK999, which doesn't exist. The program says Book or Member not found, and nothing is recorded. Same with member ALU999, which is not in the registry.
 
-> "Admins can add accounts. This librarian has their own key pair and cannot
-> use admin functions like the tamper demo. Their block is signed with their
-> own key."
+If I try to borrow BK001 again, it's refused because the book is already on loan.
 
-## Scene 8: View records and validate (3:30 – 3:50)
+And one more valid borrow: BK002 for Jane Smith."
 
-**Do:** option 4, then option 5.
+## Part 6: Overdue and return (about 40 seconds)
 
-> "The records show each block's title, member, action, who signed it,
-> whether the signature is valid, and the timestamp. Validation recomputes
-> every hash, checks every previous-hash link, and verifies each signature
-> with the signer's public key. The chain is valid."
+Do, one at a time:
 
-## Scene 9: Tamper detection (3:50 – 4:25)
+| Menu option | Book ID | Member ID |
+|---|---|---|
+| 3 | BK002 | (not asked) |
+| 2 | BK001 | ALU002 |
+| 2 | BK001 | ALU001 |
+| 2 | BK001 | ALU001 |
 
-**Do:** exit, log in as `admin`. Option 6 → block `1` → `RETURNED`. Then option
-5, then option 4, then try option 1 (`BK004` / `ALU004`).
+Say:
 
-> "Now I'll simulate a dishonest edit: I change block 1 from BORROWED to
-> RETURNED without recomputing its hash. Validation immediately reports that
-> block 1's hash no longer matches, and the records show its signature is now
-> INVALID. The system also refuses to add any new blocks on top of a
-> tampered chain, so the fake edit can never be saved."
+"Option 3 marks a book as overdue. Americanah is still on loan to Jane Smith, so an OVERDUE block is added.
 
-**Optional (strong, about 15s):** tamper with the file on disk. Exit, then:
+Now I'll return BK001, but using the wrong member, ALU002. The program refuses, because that book was borrowed by John Doe.
+
+With the correct member it works, and a RETURNED block is added.
+
+If I try to return the same book again, it says there's no active loan, because it was already returned."
+
+## Part 7: A second user and access control (about 40 seconds)
+
+Do: option 7, role `1`, username `librarian1`, password twice. Then option 10 to exit. Run `./library_tracker` again and log in as `librarian1`. Choose option 6. Then option 1 with `BK003` and `ALU003`. Then option 10.
+
+Say:
+
+"As the admin I can add a new librarian account. This librarian gets their own key pair.
+
+Now I'll log in as the librarian. If I choose the tamper option, access is denied, because only an admin can do that.
+
+The librarian can still borrow books. This block is signed with the librarian's own private key, not the admin's."
+
+## Part 8: Book and member lists, records and validation (about 50 seconds)
+
+Do: run `./library_tracker`, log in as `admin`, choose option 8, then option 9.
+
+Say:
+
+"Option 8 lists all the books with their IDs. The status comes from the chain. Three books are available, Americanah is overdue with Jane Smith, and The River Between is on loan to Amara Diallo.
+
+Option 9 lists all the members with their IDs and course, and shows which books each of them has at the moment."
+
+Do: choose option 4, then option 5.
+
+Say:
+
+"This is the list of all the lending records. For each block it shows the book, the member, the action, who signed it, whether the signature is valid, the time and the start of the hash. You can see the last block was signed by librarian1.
+
+Option 5 validates the chain. It recalculates every hash, checks that each block points to the hash of the block before it, and checks every signature using the signer's public key. The chain is valid."
+
+## Part 9: Tamper detection (about 45 seconds)
+
+Do: option 6, block index `1`, new value `RETURNED`. Then option 5. Then option 4. Then option 1 with `BK004` and `ALU004`.
+
+Say:
+
+"Now I'll show tamper detection. Block 1 says John Doe borrowed Things Fall Apart. I'll change it to RETURNED without updating the hash, as if someone edited the record to hide that the book is missing.
+
+When I validate, the program says block 1's stored hash doesn't match its data, so the chain is invalid. In the records, block 1's signature now shows INVALID.
+
+If I try to borrow another book now, the program refuses to add a block, because the chain has been tampered with. That way the fake change can never be saved."
+
+Optional, if you have time. Do: option 10 to exit, then:
 
 ```bash
 python3 -c "d=bytearray(open('chain.dat','rb').read()); i=d.find(b'Jane Smith'); d[i:i+10]=b'Evil Actor'; open('chain.dat','wb').write(d)"
 ./library_tracker
 ```
 
-> "Even if someone edits `chain.dat` directly, the startup check catches it."
+Say:
 
-## Scene 10: Wrap-up (4:25 – 4:40)
+"Even if someone edits the chain.dat file directly, the program finds the change as soon as it starts."
 
-> "To summarise: registries validate every ID, SHA-256 links the blocks,
-> per-librarian ECDSA keys authenticate each action, and validation detects
-> any tampering. Thanks for watching."
+## Part 10: Closing (about 15 seconds)
+
+Say:
+
+"So to sum up: the registries make sure only real books and members are recorded, SHA-256 links the blocks together, each librarian signs their actions with their own key, and any change to an old record is detected. The code is on my GitHub. Thank you for watching."
 
 ---
 
-## Checklist before uploading
+## Checklist
 
-- [ ] Registry loaded (and missing-file error shown)
+- [ ] Registry loading shown, including the missing-file error
 - [ ] Valid borrow and return recorded
-- [ ] Invalid book ID **and** invalid member ID rejected
-- [ ] Records viewed with signature validity
-- [ ] Chain validated as VALID
-- [ ] Tamper → validation reports INVALID
-- [ ] Length 3–5 minutes, audio clear, terminal readable
+- [ ] Invalid book ID and invalid member ID rejected
+- [ ] Records viewed, with signature validity shown
+- [ ] Chain validated
+- [ ] Tampering detected
+- [ ] Video is between 3 and 5 minutes, and the voice and text are clear

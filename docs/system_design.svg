@@ -32,15 +32,16 @@
   <line x1="260" y1="255" x2="310" y2="210" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- CLI -->
-  <rect x="570" y="110" width="240" height="180" rx="8" fill="#eafaf0" stroke="#1f8a4c" stroke-width="1.5"/>
+  <rect x="570" y="110" width="240" height="200" rx="8" fill="#eafaf0" stroke="#1f8a4c" stroke-width="1.5"/>
   <text x="690" y="133" text-anchor="middle" font-size="13" font-weight="bold" fill="#155c34">CLI (main.c)</text>
   <text x="690" y="152" text-anchor="middle" font-size="11" fill="#333">1. Borrow   2. Return</text>
   <text x="690" y="169" text-anchor="middle" font-size="11" fill="#333">3. Mark Overdue   4. View</text>
-  <text x="690" y="186" text-anchor="middle" font-size="11" fill="#333">5. Validate   8. Exit</text>
+  <text x="690" y="186" text-anchor="middle" font-size="11" fill="#333">5. Validate   8. List Books</text>
   <text x="690" y="203" text-anchor="middle" font-size="11" fill="#a33">6. Tamper demo [ADMIN]</text>
   <text x="690" y="220" text-anchor="middle" font-size="11" fill="#a33">7. Add user [ADMIN]</text>
-  <text x="690" y="244" text-anchor="middle" font-size="10" fill="#555">refuses new blocks while</text>
-  <text x="690" y="258" text-anchor="middle" font-size="10" fill="#555">the chain is invalid</text>
+  <text x="690" y="237" text-anchor="middle" font-size="11" fill="#333">9. List Members   10. Exit</text>
+  <text x="690" y="266" text-anchor="middle" font-size="10" fill="#555">refuses new blocks while</text>
+  <text x="690" y="280" text-anchor="middle" font-size="10" fill="#555">the chain is invalid</text>
 
   <line x1="520" y1="190" x2="570" y2="190" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
 
@@ -73,7 +74,7 @@
   <text x="560" y="376" text-anchor="middle" font-size="11" fill="#333">chain_add_block()  chain_validate()  chain_find_active_loan()</text>
   <text x="560" y="393" text-anchor="middle" font-size="11" fill="#333">chain_save() (atomic temp + rename) / chain_load()  -&gt;  chain.dat</text>
 
-  <line x1="690" y1="290" x2="620" y2="330" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="690" y1="310" x2="620" y2="330" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
   <line x1="1015" y1="325" x2="810" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Chain of blocks -->

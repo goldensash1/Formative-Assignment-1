@@ -24,7 +24,9 @@ static void print_menu(const Session *s) {
     printf("5. Validate Chain\n");
     printf("6. Tamper With a Block (demo) [ADMIN]\n");
     printf("7. Add User Account [ADMIN]\n");
-    printf("8. Exit\n");
+    printf("8. List Books\n");
+    printf("9. List Members\n");
+    printf("10. Exit\n");
 }
 
 static int require_admin(const Session *s) {
@@ -177,6 +179,65 @@ static void do_overdue(Blockchain *chain, Registry *reg, const Session *s) {
     }
 }
 
+/* Fills `out` with a book's current status, worked out from the chain. */
+static void describe_book_status(Blockchain *chain, const Book *book, char *out, size_t size) {
+    Block *loan = chain_find_active_loan(chain, book->book_id);
+    if (!loan) {
+        snprintf(out, size, "Available");
+        return;
+    }
+    Block *latest = chain_latest_for_book(chain, book->book_id);
+    int overdue = latest && strcmp(latest->action, "OVERDUE") == 0;
+    snprintf(out, size, "%s: %s (%s)", overdue ? "OVERDUE" : "On loan",
+             loan->member_name, loan->member_id);
+}
+
+static void do_list_books(Blockchain *chain, Registry *reg) {
+    int available = 0;
+
+    printf("\n%-8s %-28s %-26s %s\n", "Book ID", "Title", "Author", "Status");
+    for (int i = 0; i < 100; i++) putchar('-');
+    putchar('\n');
+
+    for (int i = 0; i < reg->book_count; i++) {
+        Book *b = &reg->books[i];
+        char status[96];
+        describe_book_status(chain, b, status, sizeof(status));
+        if (strcmp(status, "Available") == 0) available++;
+        printf("%-8s %-28.28s %-26.26s %s\n", b->book_id, b->title, b->author, status);
+    }
+    printf("\n%d book(s) in total, %d available, %d on loan.\n",
+           reg->book_count, available, reg->book_count - available);
+}
+
+static void do_list_members(Blockchain *chain, Registry *reg) {
+    printf("\n%-9s %-26s %-8s %s\n", "Member ID", "Full Name", "Course", "Books on loan");
+    for (int i = 0; i < 100; i++) putchar('-');
+    putchar('\n');
+
+    for (int i = 0; i < reg->member_count; i++) {
+        Member *m = &reg->members[i];
+        char loans[256] = "";
+        size_t used = 0;
+
+        for (int j = 0; j < reg->book_count; j++) {
+            Block *loan = chain_find_active_loan(chain, reg->books[j].book_id);
+            if (!loan || strcmp(loan->member_id, m->member_id) != 0) continue;
+
+            Block *latest = chain_latest_for_book(chain, reg->books[j].book_id);
+            int overdue = latest && strcmp(latest->action, "OVERDUE") == 0;
+            int n = snprintf(loans + used, sizeof(loans) - used, "%s%s%s",
+                             used ? ", " : "", reg->books[j].book_id, overdue ? " (OVERDUE)" : "");
+            if (n < 0 || (size_t)n >= sizeof(loans) - used) break;
+            used += (size_t)n;
+        }
+
+        printf("%-9s %-26.26s %-8s %s\n", m->member_id, m->full_name, m->course_code,
+               used ? loans : "-");
+    }
+    printf("\n%d member(s) in total.\n", reg->member_count);
+}
+
 static void do_validate(Blockchain *chain) {
     int bad_index = -1;
     ChainValidationResult result = chain_validate(chain, &bad_index);
@@ -285,7 +346,9 @@ int main(void) {
             case 5: do_validate(&chain); break;
             case 6: do_tamper(&chain, &session); break;
             case 7: do_add_user(&session); break;
-            case 8: running = 0; break;
+            case 8: do_list_books(&chain, &reg); break;
+            case 9: do_list_members(&chain, &reg); break;
+            case 10: running = 0; break;
             default: printf("Invalid option, try again.\n"); break;
         }
         if (input_eof()) break;

@@ -27,8 +27,9 @@ history.
   every new block. New blocks are refused while the chain is invalid.
 - **File-based persistence** (`chain.dat`, saved atomically via a temp file
   and rename) so the chain survives restarts.
-- **CLI** to borrow, return, mark overdue, view records, validate the chain
-  and run a tamper-detection demo.
+- **CLI** to borrow, return, mark overdue, view records, validate the chain,
+  list books (with availability) and members (with their loans), and run a
+  tamper-detection demo.
 
 ## Required Libraries / Dependencies
 
@@ -121,7 +122,9 @@ Logged in as: admin (ADMIN)
 5. Validate Chain
 6. Tamper With a Block (demo) [ADMIN]
 7. Add User Account [ADMIN]
-8. Exit
+8. List Books
+9. List Members
+10. Exit
 ```
 
 1. **Borrow Book**: enter a Book ID and Member ID (case-insensitive). Both
@@ -149,6 +152,11 @@ Logged in as: admin (ADMIN)
    never saved. Restart the program to reload the genuine chain.
 7. **Add User Account** *(ADMIN only)*: creates a new `LIBRARIAN` or `ADMIN`
    account with its own key pair.
+8. **List Books**: shows every book in the registry with its ID, title,
+   author and current status (`Available`, `On loan: <name> (<id>)` or
+   `OVERDUE: <name> (<id>)`), worked out from the chain.
+9. **List Members**: shows every member with their ID, name, course and the
+   IDs of any books they currently have on loan.
 
 ## How Hashing & Signing Work
 
