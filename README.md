@@ -1,70 +1,92 @@
 # Blockchain-Based Library Book Lending Tracker
 
 A C implementation of an immutable, cryptographically verifiable library
-lending ledger. Every borrow/return event is recorded as a block in a
-hash-linked, digitally-signed chain, so a librarian or borrower cannot
-quietly rewrite history.
+lending ledger. Every borrow / return / overdue event is recorded as a block
+in a hash-linked chain and digitally signed by the authenticated librarian
+who recorded it, so neither a librarian nor a borrower can quietly rewrite
+history.
 
 ## Features
 
 - **Book & Member registries** loaded from `books.txt` / `members.txt` at
-  startup, used to validate every lending action.
-- **Blockchain** of lending records, linked by SHA-256 hashes.
-- **ECDSA (P-256) digital signatures** on every block, generated with
-  OpenSSL's EVP API.
-- **Chain validation** that detects hash tampering, broken links, and
-  invalid signatures.
-- **File-based persistence** (`chain.dat`) so the chain survives restarts.
-- **CLI** to borrow, return, view records, validate the chain, and run a
-  tamper-detection demo.
+  startup into arrays of `Book` / `Member` structs, used to validate every
+  lending action. Missing or empty files, malformed lines and duplicate IDs
+  are reported.
+- **Blockchain** of lending records linked by SHA-256 hashes, starting from a
+  genesis block whose `previous_hash` is 64 zeros.
+- **User authentication & access control**: librarians log in with a
+  username and password (salted PBKDF2-HMAC-SHA256, 100,000 iterations,
+  3 attempts max). Two roles: `LIBRARIAN` and `ADMIN`.
+- **Per-user ECDSA (P-256) keys**: every account has its own key pair. The
+  private key is stored AES-256 encrypted with the user's password (file mode
+  `0600`) and is only unlocked at login. Every block is signed with the
+  private key of the user who recorded it and verified with that user's
+  **public** key.
+- **Chain validation** detects modified data (hash mismatch), broken links and
+  forged or invalid signatures. It runs automatically at startup and before
+  every new block. New blocks are refused while the chain is invalid.
+- **File-based persistence** (`chain.dat`, saved atomically via a temp file
+  and rename) so the chain survives restarts.
+- **CLI** to borrow, return, mark overdue, view records, validate the chain
+  and run a tamper-detection demo.
 
 ## Required Libraries / Dependencies
 
-- A C compiler (`gcc` or `clang`)
-- **OpenSSL** (development headers + libcrypto/libssl), used for SHA-256
-  hashing and ECDSA signing/verification.
+- A C compiler (`gcc` or `clang`) and `make`
+- **OpenSSL 3.x** (development headers + libcrypto/libssl), used for SHA-256,
+  ECDSA signing/verification, PBKDF2, AES key encryption and secure random
+  numbers.
   - macOS: `brew install openssl@3`
-  - Debian/Ubuntu: `sudo apt-get install libssl-dev`
+  - Debian/Ubuntu: `sudo apt-get install build-essential libssl-dev`
 
 ### Apple Silicon (M1/M2/M3/...) note
 
-If your only installed Homebrew OpenSSL is the Intel (x86_64) build (e.g.
-installed under `/usr/local` via a Rosetta shell), the provided `Makefile`
-automatically detects this and compiles the program as an x86_64 binary,
-which runs fine under Rosetta 2. If Rosetta isn't installed yet, install it
-once with:
+The `Makefile` looks for OpenSSL in `/opt/homebrew/opt/openssl@3` and
+`/usr/local/opt/openssl@3` (override with
+`make OPENSSL_PREFIX=/path/to/openssl`). If the only OpenSSL it finds is an
+Intel (x86_64) build, it compiles an x86_64 binary, which runs under Rosetta
+2. Install Rosetta once with:
 
 ```bash
 softwareupdate --install-rosetta --agree-to-license
 ```
 
-If you instead have a native arm64 OpenSSL (e.g. `arch -arm64 brew install
-openssl@3` under `/opt/homebrew`), the Makefile will pick that up and build
-a native arm64 binary automatically — no changes needed.
+With a native arm64 OpenSSL (under `/opt/homebrew`), a native arm64 binary
+is built automatically.
 
 ## Build & Run
 
 ```bash
-make        # compiles ./library_tracker
-make run    # compiles (if needed) and runs it
-make clean  # removes the binary and chain.dat
+make            # compiles ./library_tracker
+make run        # compiles (if needed) and runs it
+make clean      # removes the binary and chain.dat (keeps accounts & keys)
+make distclean  # full reset: also removes users.dat and keys/
 ```
 
-Or manually:
+Or manually (macOS example):
 
 ```bash
-gcc -Wall -Wextra -std=c11 -I$(brew --prefix openssl@3)/include \
-    -o library_tracker src/main.c src/blockchain.c src/registry.c src/crypto.c \
+gcc -Wall -Wextra -std=c11 -D_POSIX_C_SOURCE=200809L \
+    -I$(brew --prefix openssl@3)/include \
+    -o library_tracker src/*.c \
     -L$(brew --prefix openssl@3)/lib -lssl -lcrypto
 ./library_tracker
 ```
 
+Run the program from the project directory so it can find `books.txt` and
+`members.txt`.
+
 On first run the program will:
 
-1. Load `books.txt` and `members.txt` into memory.
-2. Generate a new ECDSA key pair (`ec_private.pem`, `ec_public.pem`) if one
-   doesn't already exist.
-3. Create the genesis block (index 0) if `chain.dat` doesn't already exist.
+1. Load `books.txt` and `members.txt` into memory (it exits with an error if
+   either is missing or empty).
+2. Ask you to create the **administrator account** (username + password).
+   This generates `keys/<username>_private.pem` (encrypted) and
+   `keys/<username>_public.pem`, and stores the salted password hash in
+   `users.dat`.
+3. Ask you to log in.
+4. Create the genesis block (index 0), signed by the logged-in user, if
+   `chain.dat` doesn't exist yet.
 
 ## Project Layout
 
@@ -75,63 +97,87 @@ Formative Assignment 1/
 ├── Makefile
 ├── README.md
 ├── src/
-│   ├── main.c            # CLI menu + entry point
+│   ├── main.c            # CLI menu, access control + entry point
 │   ├── registry.h/.c     # Book/Member registry loading & lookup
-│   ├── crypto.h/.c       # SHA-256 hashing + ECDSA sign/verify (OpenSSL)
-│   └── blockchain.h/.c   # Block struct, chain ops, hashing, persistence
-└── docs/                 # system design diagram, report assets
+│   ├── auth.h/.c         # accounts, PBKDF2 password hashing, login, roles
+│   ├── crypto.h/.c       # SHA-256, per-user ECDSA keys, sign/verify (OpenSSL)
+│   ├── blockchain.h/.c   # Block struct, chain ops, validation, persistence
+│   └── input.h/.c        # safe line input, hidden password entry, int parsing
+└── docs/                 # system design diagram, demo video script
 ```
 
 Generated at runtime (not committed): `library_tracker`, `chain.dat`,
-`ec_private.pem`, `ec_public.pem`.
+`users.dat`, `keys/`.
 
 ## CLI Usage
 
 ```
 ===== Blockchain Library Lending Tracker =====
+Logged in as: admin (ADMIN)
 1. Borrow Book
 2. Return Book
-3. View Lending Records
-4. Validate Chain
-5. Tamper With a Block (demo)
-6. Exit
+3. Mark Book Overdue
+4. View Lending Records
+5. Validate Chain
+6. Tamper With a Block (demo) [ADMIN]
+7. Add User Account [ADMIN]
+8. Exit
 ```
 
-1. **Borrow Book** — enter a Book ID and Member ID. Both are checked
-   against the registries; an unknown ID (or a book already on loan)
-   aborts with an error. Otherwise a new `BORROWED` block is created,
-   signed, hashed, and appended to the chain.
-2. **Return Book** — enter a Book ID. The chain is scanned for that book's
-   most recent unreturned `BORROWED` block; if none exists, an error is
-   printed. Otherwise a `RETURNED` block is appended.
-3. **View Lending Records** — prints every block (title, member, action,
-   timestamp, truncated hash, and whether its signature currently
-   verifies).
-4. **Validate Chain** — recomputes every block's hash, checks
-   `previous_hash` linkage, and re-verifies every signature, reporting the
-   first block where something doesn't match.
-5. **Tamper With a Block (demo)** — deliberately overwrites a block's
-   `action` field in memory *without* recomputing its hash (simulating an
-   attacker editing the ledger directly), so option 4 can be used
-   immediately afterward to show validation failing. This change is not
-   saved to `chain.dat`, so restarting the program restores the genuine
-   chain.
+1. **Borrow Book**: enter a Book ID and Member ID (case-insensitive). Both
+   are checked against the registries. An unknown ID prints
+   `ERROR: Book or Member not found`, and a book already on loan is
+   rejected. Otherwise a `BORROWED` block is created, signed, hashed and
+   appended.
+2. **Return Book**: enter the Book ID and Member ID. Both must exist, the
+   book must have an active loan (its most recent `BORROWED` entry has no
+   later `RETURNED`), and the member must be the borrower. Otherwise an error
+   is printed. On success a `RETURNED` block is appended.
+3. **Mark Book Overdue**: for a book currently on loan, shows how many days
+   it has been out (loan period: 14 days) and appends an `OVERDUE` block
+   for its borrower. The loan stays open until the book is returned.
+4. **View Lending Records**: prints every block: book, title, member, name,
+   action, who signed it, whether the signature verifies, timestamp and a
+   truncated hash.
+5. **Validate Chain**: recomputes every block's hash, checks `previous_hash`
+   linkage (64 zeros for genesis), and verifies every signature with the
+   signer's public key. It reports the first block that fails.
+6. **Tamper With a Block (demo)** *(ADMIN only)*: overwrites a block's
+   `action` field in memory *without* recomputing its hash, simulating an
+   attacker editing the ledger. Option 5 then shows validation failing. While
+   the chain is invalid, all new blocks are refused, so the tampered data is
+   never saved. Restart the program to reload the genuine chain.
+7. **Add User Account** *(ADMIN only)*: creates a new `LIBRARIAN` or `ADMIN`
+   account with its own key pair.
 
 ## How Hashing & Signing Work
 
 For each block:
 
 1. The core fields (`index`, `timestamp`, `book_id`, `book_title`,
-   `member_id`, `member_name`, `action`, `previous_hash`) are concatenated
-   into a canonical buffer and hashed with SHA-256 — this is the
-   "data hash" that gets **signed** with the ECDSA private key.
-2. The resulting signature bytes are appended to the same buffer, and the
-   whole thing is hashed again with SHA-256 to produce the block's final
-   `hash` field — so the stored hash commits to every field, including the
-   signature.
+   `member_id`, `member_name`, `action`, `recorded_by`, `previous_hash`) are
+   concatenated into a canonical buffer and hashed with SHA-256. This "data
+   hash" is **signed** with the ECDSA private key of the logged-in user
+   (`recorded_by`).
+2. The signature bytes are appended to the same buffer, and the whole thing
+   is hashed again with SHA-256 to produce the block's final `hash`, so the
+   stored hash commits to every field, including the signature.
 3. `previous_hash` is copied from the prior block's `hash`, linking the
    chain.
 
-Validation re-derives both hashes and re-verifies the signature with the
-stored public key, so any change to any field (including a forged
-signature) is detectable.
+Validation re-derives both hashes and verifies each signature with the
+**public key** in `keys/<recorded_by>_public.pem`, so any change to any
+field, and any signature not made by that user's private key, is detected.
+
+## Security Notes & Limitations
+
+- Passwords are never stored. Only a random 16-byte salt and a
+  PBKDF2-HMAC-SHA256 hash are kept in `users.dat` (mode `0600`). Password
+  comparison is constant-time, and unknown usernames take as long to reject
+  as wrong passwords.
+- Private keys are encrypted at rest with the owner's password, so someone
+  who copies `keys/` still cannot sign blocks without the password.
+- This is a single-machine demo. An attacker with full write access to the
+  folder could replace both a user's public key and `chain.dat` together. A
+  production system would anchor public keys with a certificate authority
+  and replicate the chain across independent nodes.

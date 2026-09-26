@@ -1,5 +1,6 @@
 library_tracker
 chain.dat
-ec_private.pem
-ec_public.pem
+chain.dat.tmp
+users.dat
+keys/
 *.o
